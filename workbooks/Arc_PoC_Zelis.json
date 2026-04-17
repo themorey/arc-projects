@@ -1,0 +1,248 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# Azure Arc PoC Infrastructure Monitoring\n\nScoped to the current **Log Analytics workspace**. Uses **OpenTelemetry (InsightsMetrics)** for performance data.\n\n| Section | Time Range |\n|---|---|\n| Host Availability | Last 1 day |\n| CPU / Memory / Disk Performance | Last 24 hours |\n| CPU / Memory Anomalies | Last 3 days |\n| Disk Anomalies & Forecast | Last 30 days |\n| Services & Containers | Last 24 hours |"
+      },
+      "name": "title"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "Heartbeat\n| where TimeGenerated >= ago(1d)\n| project TimeGenerated, Computer, ResourceType, OSType\n| summarize LastSeen = max(TimeGenerated) by Computer, ResourceType, OSType\n| extend Status = iff(LastSeen > ago(5m), 'Up', 'Down')\n| extend Source = case(\n    ResourceType == 'machines', 'Azure Arc',\n    ResourceType == 'virtualMachines', 'Azure VM',\n    'Unknown'\n  )\n| extend StatusCode = iff(Status == 'Up', 1, 0)\n| project Computer, Status, StatusCode, Source, OSType, LastSeen\n| order by StatusCode asc, Source asc, Computer asc",
+        "size": 0,
+        "title": "Host Availability (Heartbeat – All Sources)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "Status",
+              "formatter": 18,
+              "formatOptions": {
+                "thresholdsOptions": "icons",
+                "thresholdsGrid": [
+                  {
+                    "operator": "==",
+                    "thresholdValue": "Down",
+                    "representation": "4",
+                    "text": "Down"
+                  },
+                  {
+                    "operator": "Default",
+                    "thresholdValue": null,
+                    "representation": "success",
+                    "text": "Up"
+                  }
+                ]
+              }
+            },
+            {
+              "columnMatch": "StatusCode",
+              "formatter": 5
+            }
+          ]
+        }
+      },
+      "name": "availability"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated >= ago(24h)\n| project TimeGenerated, Computer, Namespace, Name, Val\n| where Namespace == 'Processor' and Name == 'UtilizationPercentage'\n| summarize AvgCPU = avg(Val) by bin(TimeGenerated, 15m), Computer\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "CPU Utilization (15-minute avg, last 24h)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "timechart"
+      },
+      "name": "cpu-timechart"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated >= ago(24h)\n| project TimeGenerated, Computer, Namespace, Name, Val\n| where Namespace == 'Memory' and Name == 'AvailableMB'\n| summarize AvgAvailMB = avg(Val) by bin(TimeGenerated, 15m), Computer\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Available Memory MB (15-minute avg, last 24h)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "timechart"
+      },
+      "name": "memory-timechart"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated >= ago(24h)\n| project TimeGenerated, Computer, Namespace, Name, Val\n| where Namespace == 'Processor' and Name == 'UtilizationPercentage'\n| summarize Score = avg(Val) by Computer\n| where Score > 1\n| top 10 by Score desc\n| project Computer, AvgCPUPct = round(Score, 2)",
+        "size": 0,
+        "title": "Top 10 Noisy Hosts – CPU (last 24h)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "topn-cpu"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated >= ago(24h)\n| project TimeGenerated, Computer, Namespace, Name, Val\n| where Namespace == 'Memory' and Name == 'AvailableMB'\n| summarize Score = avg(Val) by Computer\n| top 10 by Score asc\n| project Computer, AvgAvailMB = round(Score, 2)\n| order by AvgAvailMB asc",
+        "size": 0,
+        "title": "Top 10 Noisy Hosts – RAM Lowest Available (last 24h)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "topn-ram"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated >= ago(24h)\n| project TimeGenerated, Computer, Namespace, Name, Val, Tags\n| where Namespace == 'LogicalDisk' and Name == 'FreeSpacePercentage'\n| extend Disk = tostring(parse_json(Tags)['vm.azm.ms/mountId'])\n| where Disk !startswith '/snap/' and Disk !startswith '/run/' and Disk !startswith '/sys/' and Disk !startswith '/dev/'\n| summarize Score = avg(Val) by Computer, Disk\n| top 10 by Score asc\n| project Computer, Disk, AvgFreeSpacePct = round(Score, 2)\n| order by AvgFreeSpacePct asc",
+        "size": 0,
+        "title": "Top 10 Noisy Hosts – Disk Lowest Free Space (last 24h)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "topn-disk"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated >= ago(1d)\n| project TimeGenerated, Computer, Namespace, Name, Val, Tags\n| where Namespace == 'LogicalDisk' and Name == 'FreeSpacePercentage'\n| extend Disk = tostring(parse_json(Tags)['vm.azm.ms/mountId'])\n| where Disk !startswith '/snap/' and Disk !startswith '/run/' and Disk !startswith '/sys/' and Disk !startswith '/dev/'\n| summarize CurrentFree = avg(Val) by Computer, Disk\n| where CurrentFree < 20\n| project Computer, Disk, CurrentFreePct = round(CurrentFree, 2)\n| order by CurrentFreePct asc",
+        "size": 0,
+        "title": "Low Disk Space Warning – < 20% Free (last 24h)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "low-disk"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated >= ago(30d)\n| project TimeGenerated, Computer, Namespace, Name, Val, Tags\n| where Namespace == 'LogicalDisk' and Name == 'FreeSpacePercentage'\n| extend Disk = tostring(parse_json(Tags)['vm.azm.ms/mountId'])\n| where Disk !startswith '/snap/' and Disk !startswith '/run/' and Disk !startswith '/sys/' and Disk !startswith '/dev/'\n| summarize AvgFree = avg(Val) by bin(TimeGenerated, 1d), Computer, Disk\n| order by Computer asc, Disk asc, TimeGenerated asc\n| serialize\n| extend Prev = prev(AvgFree, 1)\n| extend BurnRate = iff(isnull(Prev), real(0), abs(AvgFree - Prev))\n| summarize CurrentFree = todouble(arg_max(TimeGenerated, AvgFree)), AvgBurn = avg(BurnRate) by Computer, Disk\n| extend DaysToFull = iff(AvgBurn == real(0), real(null), CurrentFree / AvgBurn)\n| where isnotnull(DaysToFull) and DaysToFull < 180\n| project Computer, Disk, CurrentFreePct = round(CurrentFree, 2), DailyBurnRate = round(AvgBurn, 4), EstimatedDaysToFull = round(DaysToFull, 1)\n| order by EstimatedDaysToFull asc",
+        "size": 0,
+        "title": "Disk Forecast – Estimated Days Until Full (< 180 days)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "forecast"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "### 🔍 CPU Anomaly Detection\n\nThis table uses **`series_decompose_anomalies()`** with a sensitivity threshold of **1.5** (medium sensitivity).\n\n| AnomalyScore | Meaning | Recommended Action |\n|---|---|---|\n| **+1** | Abnormally **HIGH** CPU – unexpected spike | Investigate runaway process, scheduled job, or attack |\n| **-1** | Abnormally **LOW** CPU – unexpected drop | Investigate service outage or agent failure |\n\n> Only non-zero scores are shown. A score of **0** means the value was within the expected range and is filtered out."
+      },
+      "name": "cpu-anomaly-info"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated >= ago(3d)\n| project TimeGenerated, Computer, Namespace, Name, Val\n| where Namespace == 'Processor' and Name == 'UtilizationPercentage'\n| summarize AvgCPU = avg(Val) by bin(TimeGenerated, 15m), Computer\n| make-series CPUSeries = avg(AvgCPU) on TimeGenerated step 15m by Computer\n| extend anomalies = series_decompose_anomalies(CPUSeries, 1.5)\n| mv-expand TimeGenerated, CPUSeries, anomalies\n| where toint(anomalies) != 0\n| project TimeGenerated = todatetime(TimeGenerated), Computer, AvgCPUPct = round(toreal(CPUSeries), 2), AnomalyScore = toint(anomalies)\n| order by TimeGenerated desc",
+        "size": 0,
+        "title": "CPU Anomaly Detection (last 3d, 15m bins)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "cpu-anomaly"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "### 🔍 RAM Anomaly Detection\n\nThis table uses **`series_decompose_anomalies()`** with a sensitivity threshold of **1.5** (medium sensitivity).\n\n| AnomalyScore | Meaning | Recommended Action |\n|---|---|---|\n| **+1** | Abnormally **HIGH** available memory – unexpected increase | May indicate a service stopped or workload dropped unexpectedly |\n| **-1** | Abnormally **LOW** available memory – unexpected memory pressure | Investigate memory leak, large process, or sudden workload spike |\n\n> Only non-zero scores are shown. A score of **0** means the value was within the expected range and is filtered out."
+      },
+      "name": "ram-anomaly-info"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated >= ago(3d)\n| project TimeGenerated, Computer, Namespace, Name, Val\n| where Namespace == 'Memory' and Name == 'AvailableMB'\n| summarize AvgRAM = avg(Val) by bin(TimeGenerated, 15m), Computer\n| make-series RAMSeries = avg(AvgRAM) on TimeGenerated step 15m by Computer\n| extend anomalies = series_decompose_anomalies(RAMSeries, 1.5)\n| mv-expand TimeGenerated, RAMSeries, anomalies\n| where toint(anomalies) != 0\n| project TimeGenerated = todatetime(TimeGenerated), Computer, AvgAvailMB = round(toreal(RAMSeries), 2), AnomalyScore = toint(anomalies)\n| order by TimeGenerated desc",
+        "size": 0,
+        "title": "RAM Anomaly Detection (last 3d, 15m bins)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "ram-anomaly"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "### 🔍 Disk Capacity Anomaly Detection\n\nThis table uses **`series_decompose_anomalies()`** with a sensitivity threshold of **1.5** (medium sensitivity).\n\n| AnomalyScore | Meaning | Recommended Action |\n|---|---|---|\n| **-1** | Abnormally **LOW** free space – unexpected disk consumption | Investigate large file writes, log bloat, or runaway process |\n\n> Only **drops** (AnomalyScore = **-1**) are shown. Unexpected increases in free space are filtered out as they do not represent a risk."
+      },
+      "name": "disk-anomaly-info"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated >= ago(30d)\n| project TimeGenerated, Computer, Namespace, Name, Val, Tags\n| where Namespace == 'LogicalDisk' and Name == 'FreeSpacePercentage'\n| extend Disk = tostring(parse_json(Tags)['vm.azm.ms/mountId'])\n| where Disk !startswith '/snap/' and Disk !startswith '/run/' and Disk !startswith '/sys/' and Disk !startswith '/dev/'\n| summarize AvgFree = avg(Val) by bin(TimeGenerated, 1d), Computer, Disk\n| make-series FreeSeries = avg(AvgFree) on TimeGenerated step 1d by Computer, Disk\n| extend anomalies = series_decompose_anomalies(FreeSeries, 1.5)\n| mv-expand TimeGenerated, FreeSeries, anomalies\n| where toint(anomalies) == -1\n| project TimeGenerated = todatetime(TimeGenerated), Computer, Disk, AvgFreePct = round(toreal(FreeSeries), 2)\n| order by TimeGenerated desc",
+        "size": 0,
+        "title": "Disk Capacity Anomaly Detection (last 30d, 1d bins)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "disk-anomaly"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "Event\n| where TimeGenerated >= ago(24h)\n| project TimeGenerated, Computer, EventLog, Source, EventID, RenderedDescription\n| where EventLog == 'System' and Source == 'Service Control Manager'\n| where EventID in (7034, 7036)\n| extend ServiceEvent = case(\n    EventID == 7034, 'Service Crashed',\n    EventID == 7036, 'Service State Changed',\n    'Unknown'\n  )\n| project TimeGenerated, Computer, ServiceEvent, EventID, RenderedDescription\n| order by TimeGenerated desc\n| take 100",
+        "size": 0,
+        "title": "Windows Service Events – Stopped / Crashed (last 24h)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "service-windows"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "Syslog\n| where TimeGenerated >= ago(24h)\n| project TimeGenerated, Computer, SyslogMessage\n| where SyslogMessage contains 'systemd'\n| where SyslogMessage contains 'failed' or SyslogMessage contains 'stopped'\n| order by TimeGenerated desc\n| take 100",
+        "size": 0,
+        "title": "Linux Service Events – Failed / Stopped (last 24h)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "service-linux"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ContainerInventory\n| where TimeGenerated >= ago(24h)\n| project TimeGenerated, Computer, ContainerState, Image\n| summarize ContainerCount = count() by Computer, ContainerState, Image\n| order by Computer asc, ContainerState asc",
+        "size": 0,
+        "title": "Container Inventory (last 24h)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "containers"
+    }
+  ],
+  "fallbackResourceIds": [
+    "/subscriptions/<your_sub_id>/resourceGroups/<your_RG_name>/providers/Microsoft.OperationalInsights/workspaces/<your_LAW_name>"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
