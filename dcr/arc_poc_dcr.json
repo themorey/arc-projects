@@ -1,0 +1,38 @@
+{
+  "location": "eastus2",
+  "kind": "Windows",
+  "properties": {
+    "dataSources": {
+      "performanceCounters": [
+        {
+          "name": "vmInsightsPerfCounters",
+          "streams": [
+            "Microsoft-InsightsMetrics"
+          ],
+          "samplingFrequencyInSeconds": 60,
+          "counterSpecifiers": [
+            "\\VmInsights\\DetailedMetrics"
+          ]
+        }
+      ]
+    },
+    "destinations": {
+      "logAnalytics": [
+        {
+          "workspaceResourceId": "/subscriptions/<SUB_ID>/resourceGroups/<RG>/providers/Microsoft.OperationalInsights/workspaces/<LAW_NAME>",
+          "name": "la-dest"
+        }
+      ]
+    },
+    "dataFlows": [
+      {
+        "streams": [
+          "Microsoft-InsightsMetrics"
+        ],
+        "destinations": [
+          "la-dest"
+        ]
+      }
+    ]
+  }
+}
