@@ -1,6 +1,5 @@
 {
   "location": "eastus2",
-  "kind": "Windows",
   "properties": {
     "dataSources": {
       "performanceCounters": [
@@ -14,12 +13,21 @@
             "\\VmInsights\\DetailedMetrics"
           ]
         }
+      ],
+      "extensions": [
+        {
+          "name": "DependencyAgentDataSource",
+          "streams": [
+            "Microsoft-ServiceMap"
+          ],
+          "extensionName": "DependencyAgent"
+        }
       ]
     },
     "destinations": {
       "logAnalytics": [
         {
-          "workspaceResourceId": "/subscriptions/<SUB_ID>/resourceGroups/<RG>/providers/Microsoft.OperationalInsights/workspaces/<LAW_NAME>",
+          "workspaceResourceId": "<LAW_ResourceID>",
           "name": "la-dest"
         }
       ]
@@ -28,6 +36,14 @@
       {
         "streams": [
           "Microsoft-InsightsMetrics"
+        ],
+        "destinations": [
+          "la-dest"
+        ]
+      },
+      {
+        "streams": [
+          "Microsoft-ServiceMap"
         ],
         "destinations": [
           "la-dest"
