@@ -1,0 +1,1168 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 9,
+      "name": "parameters",
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "style": "pills",
+        "queryType": 1,
+        "resourceType": "microsoft.resourcegraph/resources",
+        "parameters": [
+          {
+            "id": "p-tab",
+            "version": "KqlParameterItem/1.0",
+            "name": "SelectedTab",
+            "label": "Dashboard View",
+            "type": 10,
+            "isRequired": true,
+            "typeSettings": {
+              "showAsRadioButton": true
+            },
+            "jsonData": "[\n  {\"value\":\"Overview\",\"label\":\"🏠 Overview\"},\n  {\"value\":\"Performance\",\"label\":\"💻 Performance\"},\n  {\"value\":\"DrillDown\",\"label\":\"🔍 VM Drill Down\"},\n  {\"value\":\"Services\",\"label\":\"🖥 Services\"},\n  {\"value\":\"Network\",\"label\":\"🌐 Network\"},\n  {\"value\":\"Capacity\",\"label\":\"📈 Capacity\"}\n]",
+            "value": "Overview"
+          },
+          {
+            "id": "p-ws",
+            "version": "KqlParameterItem/1.0",
+            "name": "Workspaces",
+            "label": "Log Analytics Workspace",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": false,
+            "query": "resources\n| where type =~ 'microsoft.operationalinsights/workspaces'\n| project id, label = name, selected = true",
+            "crossComponentResources": [
+              "value::all"
+            ],
+            "typeSettings": {
+              "showDefault": false
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
+          },
+          {
+            "id": "p-tr",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time Range",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 86400000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 3600000
+                },
+                {
+                  "durationMs": 14400000
+                },
+                {
+                  "durationMs": 43200000
+                },
+                {
+                  "durationMs": 86400000
+                },
+                {
+                  "durationMs": 172800000
+                },
+                {
+                  "durationMs": 604800000
+                }
+              ]
+            }
+          },
+          {
+            "id": "p-vm",
+            "version": "KqlParameterItem/1.0",
+            "name": "SelectedVM",
+            "label": "VM Filter",
+            "type": 2,
+            "isRequired": false,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "Heartbeat\n| where TimeGenerated > ago(1d)\n| summarize LastSeen = max(TimeGenerated) by Computer\n| order by Computer asc\n| project value = tolower(Computer), label = Computer",
+            "crossComponentResources": [
+              "{Workspaces}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "selectAllValue": "*",
+              "showDefault": false
+            },
+            "defaultValue": "value::all",
+            "queryType": 0,
+            "resourceType": "microsoft.operationalinsights/workspaces"
+          },
+          {
+            "id": "p-dvm",
+            "version": "KqlParameterItem/1.0",
+            "name": "DrillVM",
+            "label": "Drilled VM",
+            "type": 1,
+            "isRequired": false,
+            "value": "",
+            "isHiddenWhenLocked": true
+          },
+          {
+            "id": "p-svc",
+            "version": "KqlParameterItem/1.0",
+            "name": "SelectedService",
+            "label": "Selected Service",
+            "type": 1,
+            "isRequired": false,
+            "value": "",
+            "isHiddenWhenLocked": true
+          },
+          {
+            "id": "p-svcpc",
+            "version": "KqlParameterItem/1.0",
+            "name": "ServiceComputer",
+            "label": "Service Computer",
+            "type": 1,
+            "isRequired": false,
+            "value": "",
+            "isHiddenWhenLocked": true
+          }
+        ]
+      }
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## 🏠 Overview — Fleet Health\nHeartbeat-based host status and active threshold alerts across all monitored VMs."
+            },
+            "name": "overview-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "Heartbeat\n| where TimeGenerated {TimeRange}\n| summarize LastSeen = max(TimeGenerated), OS = any(OSType) by Computer\n| extend Status = iff(LastSeen >= ago(5m), '✅ Up', '🔴 Down')\n| extend MinAgo = datetime_diff('minute', now(), LastSeen)\n| project Computer, Status, OS, LastSeen, MinAgo\n| order by Status asc, Computer asc",
+              "size": 1,
+              "title": "Host Up / Down Status",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "timeContextFromParameter": "TimeRange",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Status",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "LastSeen",
+                    "formatter": 6
+                  },
+                  {
+                    "columnMatch": "MinAgo",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 60,
+                      "palette": "greenRed"
+                    }
+                  }
+                ],
+                "filter": true,
+                "sortBy": [
+                  {
+                    "itemKey": "Status",
+                    "sortOrder": 1
+                  }
+                ]
+              }
+            },
+            "name": "overview-heartbeat"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let CPU = InsightsMetrics\n| where TimeGenerated > ago(15m)\n| where Namespace == 'Processor' and Name == 'UtilizationPercentage'\n| summarize AvgVal = avg(Val) by Computer\n| where AvgVal > 80\n| extend Alert = strcat('🔴 CPU > 80% (', round(AvgVal,1), '%)'), Metric = 'CPU';\nlet MEM = InsightsMetrics\n| where TimeGenerated > ago(15m)\n| where Namespace == 'Memory' and Name == 'AvailableMB'\n| extend TotalMB = toreal(todynamic(Tags)['vm.azm.ms/memorySizeMB'])\n| where TotalMB > 0\n| extend UsedPct = (1.0 - (Val / TotalMB)) * 100.0\n| summarize AvgVal = avg(UsedPct) by Computer\n| where AvgVal > 85\n| extend Alert = strcat('🟠 Mem > 85% (', round(AvgVal,1), '%)'), Metric = 'Memory';\nlet DISK = InsightsMetrics\n| where TimeGenerated > ago(15m)\n| where Namespace == 'LogicalDisk' and Name == 'FreeSpacePercentage'\n| extend Disk = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| extend Disk = iff(isempty(Disk), 'unknown', Disk)\n| where not(Disk startswith '/snap' or Disk startswith '/sys' or Disk startswith '/proc' or Disk startswith '/dev' or Disk startswith '/run')\n| summarize AvgVal = avg(Val) by Computer\n| where AvgVal < 15\n| extend Alert = strcat('🟡 Disk < 15% (', round(AvgVal,1), '%)'), Metric = 'Disk';\nunion CPU, MEM, DISK\n| project Computer, Metric, Alert\n| order by Computer asc, Metric asc",
+              "size": 1,
+              "title": "Active Threshold Alerts (last 15 min)",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Alert",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "Metric",
+                    "formatter": 1
+                  }
+                ],
+                "filter": true
+              }
+            },
+            "name": "overview-alerts"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "SelectedTab",
+        "comparison": "isEqualTo",
+        "value": "Overview"
+      },
+      "name": "group-overview"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## 💻 Performance — CPU, Memory & Disk\nPer-VM time-series charts and summary statistics."
+            },
+            "name": "perf-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'Processor' and Name == 'UtilizationPercentage'\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| summarize AvgCPU = round(avg(Val), 2) by bin(TimeGenerated, 5m), Computer\n| order by TimeGenerated asc, Computer asc",
+              "size": 0,
+              "title": "CPU Utilization % — Per VM",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "timechart",
+              "timeContextFromParameter": "TimeRange",
+              "chartSettings": {
+                "aggregation": "Average",
+                "seriesAggregation": "Average",
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0,
+                  "max": 100
+                }
+              }
+            },
+            "name": "perf-cpu"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'Memory' and Name == 'AvailableMB'\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| extend TotalMB = toreal(todynamic(Tags)['vm.azm.ms/memorySizeMB'])\n| where TotalMB > 0\n| extend UsedPct = round((1.0 - (Val / TotalMB)) * 100.0, 2)\n| extend UsedPct = iff(UsedPct < 0.0, 0.0, iff(UsedPct > 100.0, 100.0, UsedPct))\n| summarize AvgMemPct = round(avg(UsedPct), 2) by bin(TimeGenerated, 5m), Computer\n| order by TimeGenerated asc, Computer asc",
+              "size": 0,
+              "title": "Memory Used % — Per VM",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "timechart",
+              "timeContextFromParameter": "TimeRange",
+              "chartSettings": {
+                "aggregation": "Average",
+                "seriesAggregation": "Average",
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0,
+                  "max": 100
+                }
+              }
+            },
+            "name": "perf-mem"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'LogicalDisk' and Name == 'FreeSpacePercentage'\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| extend Disk = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| extend Disk = iff(isempty(Disk), 'unknown', Disk)\n| where not(Disk startswith '/snap' or Disk startswith '/sys' or Disk startswith '/proc' or Disk startswith '/dev' or Disk startswith '/run')\n| summarize AvgFreePct = round(avg(Val), 2) by bin(TimeGenerated, 5m), Computer, Disk\n| extend SeriesLabel = strcat(Computer, ' — ', Disk)\n| project TimeGenerated, SeriesLabel, AvgFreePct\n| order by TimeGenerated asc, SeriesLabel asc",
+              "size": 0,
+              "title": "Disk Free % — Per VM Per Mount",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "timechart",
+              "timeContextFromParameter": "TimeRange",
+              "chartSettings": {
+                "aggregation": "Average",
+                "seriesAggregation": "Average",
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0,
+                  "max": 100
+                }
+              }
+            },
+            "name": "perf-disk"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'Processor' and Name == 'UtilizationPercentage'\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| summarize AvgCPU = round(avg(Val), 2), MaxCPU = round(max(Val), 2), P95CPU = round(percentile(Val, 95), 2) by Computer\n| extend CPUAlert = iff(P95CPU > 85, '🔴 High', iff(P95CPU > 60, '🟡 Medium', '🟢 Normal'))\n| order by P95CPU desc",
+              "size": 1,
+              "title": "CPU Summary — Avg / Max / P95 per VM",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "timeContextFromParameter": "TimeRange",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "AvgCPU",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "greenRed"
+                    }
+                  },
+                  {
+                    "columnMatch": "MaxCPU",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "greenRed"
+                    }
+                  },
+                  {
+                    "columnMatch": "P95CPU",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "greenRed"
+                    }
+                  },
+                  {
+                    "columnMatch": "CPUAlert",
+                    "formatter": 1
+                  }
+                ],
+                "filter": true,
+                "sortBy": [
+                  {
+                    "itemKey": "P95CPU",
+                    "sortOrder": 2
+                  }
+                ]
+              }
+            },
+            "name": "perf-cpu-table"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "SelectedTab",
+        "comparison": "isEqualTo",
+        "value": "Performance"
+      },
+      "name": "group-performance"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## 🔍 VM Drill Down\n👆 Click a row in the inventory grid to load detailed metrics for that VM."
+            },
+            "name": "drill-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| summarize LastSeen = max(TimeGenerated), Namespaces = make_set(Namespace) by Computer\n| extend Status = iff(LastSeen >= ago(15m), '✅ Active', '⚠️ Stale')\n| project Computer, Status, LastSeen, Namespaces\n| order by Computer asc",
+              "size": 1,
+              "title": "VM Inventory — Click a row to drill down",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "timeContextFromParameter": "TimeRange",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Status",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "LastSeen",
+                    "formatter": 6
+                  }
+                ],
+                "filter": true,
+                "rowLimit": 500
+              },
+              "exportedParameters": [
+                {
+                  "fieldName": "Computer",
+                  "parameterName": "DrillVM",
+                  "parameterType": 1
+                }
+              ]
+            },
+            "name": "drill-inventory"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "### 📌 Selected VM: **{DrillVM}**\n---"
+            },
+            "name": "drill-label"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'Processor' and Name == 'UtilizationPercentage'\n| where Computer =~ '{DrillVM}'\n| summarize AvgCPU = round(avg(Val), 2) by bin(TimeGenerated, 1m)\n| order by TimeGenerated asc",
+              "size": 0,
+              "title": "CPU % — {DrillVM}",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "timechart",
+              "timeContextFromParameter": "TimeRange",
+              "chartSettings": {
+                "aggregation": "Average",
+                "seriesAggregation": "Average",
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0,
+                  "max": 100
+                }
+              }
+            },
+            "name": "drill-cpu"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'Memory' and Name == 'AvailableMB'\n| where Computer =~ '{DrillVM}'\n| extend TotalMB = toreal(todynamic(Tags)['vm.azm.ms/memorySizeMB'])\n| where TotalMB > 0\n| extend UsedPct = round((1.0 - (Val / TotalMB)) * 100.0, 2)\n| extend UsedPct = iff(UsedPct < 0.0, 0.0, iff(UsedPct > 100.0, 100.0, UsedPct))\n| summarize AvgMemPct = round(avg(UsedPct), 2) by bin(TimeGenerated, 1m)\n| order by TimeGenerated asc",
+              "size": 0,
+              "title": "Memory Used % — {DrillVM}",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "timechart",
+              "timeContextFromParameter": "TimeRange",
+              "chartSettings": {
+                "aggregation": "Average",
+                "seriesAggregation": "Average",
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0,
+                  "max": 100
+                }
+              }
+            },
+            "name": "drill-mem"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'LogicalDisk' and Name == 'FreeSpacePercentage'\n| where Computer =~ '{DrillVM}'\n| extend Disk = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| extend Disk = iff(isempty(Disk), 'unknown', Disk)\n| where not(Disk startswith '/snap' or Disk startswith '/sys' or Disk startswith '/proc' or Disk startswith '/dev' or Disk startswith '/run')\n| summarize AvgFreePct = round(avg(Val), 2) by bin(TimeGenerated, 1m), Disk\n| order by TimeGenerated asc, Disk asc",
+              "size": 0,
+              "title": "Disk Free % — Each Mount Point ({DrillVM})",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "timechart",
+              "timeContextFromParameter": "TimeRange",
+              "chartSettings": {
+                "aggregation": "Average",
+                "seriesAggregation": "Average",
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0,
+                  "max": 100
+                }
+              }
+            },
+            "name": "drill-disk"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'LogicalDisk' and Name == 'FreeSpacePercentage'\n| where Computer =~ '{DrillVM}'\n| extend Disk = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| extend Disk = iff(isempty(Disk), 'unknown', Disk)\n| where not(Disk startswith '/snap' or Disk startswith '/sys' or Disk startswith '/proc' or Disk startswith '/dev' or Disk startswith '/run')\n| summarize CurrentFree = round(avg(Val), 1), MinFree = round(min(Val), 1), MaxFree = round(max(Val), 1) by Disk\n| extend Status = iff(CurrentFree < 10, '🔴 Critical', iff(CurrentFree < 20, '🟡 Warning', '🟢 OK'))\n| order by CurrentFree asc",
+              "size": 1,
+              "title": "Disk Free % Summary — All Mounts ({DrillVM})",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "timeContextFromParameter": "TimeRange",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "CurrentFree",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "redGreen"
+                    }
+                  },
+                  {
+                    "columnMatch": "MinFree",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "redGreen"
+                    }
+                  },
+                  {
+                    "columnMatch": "MaxFree",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "redGreen"
+                    }
+                  },
+                  {
+                    "columnMatch": "Status",
+                    "formatter": 1
+                  }
+                ],
+                "filter": true,
+                "sortBy": [
+                  {
+                    "itemKey": "CurrentFree",
+                    "sortOrder": 1
+                  }
+                ]
+              }
+            },
+            "name": "drill-disk-table"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "Heartbeat\n| where TimeGenerated {TimeRange}\n| where Computer =~ '{DrillVM}'\n| summarize Heartbeats = count() by bin(TimeGenerated, 5m)\n| order by TimeGenerated asc",
+              "size": 0,
+              "title": "Heartbeat (5m bins) — {DrillVM}",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "barchart",
+              "timeContextFromParameter": "TimeRange",
+              "chartSettings": {
+                "aggregation": "Sum",
+                "seriesAggregation": "Sum",
+                "showLegend": false
+              }
+            },
+            "name": "drill-heartbeat"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'Network'\n| where Name in ('WriteBytesPerSecond','ReadBytesPerSecond')\n| where Computer =~ '{DrillVM}'\n| extend Interface = tostring(todynamic(Tags)['vm.azm.ms/networkDeviceId'])\n| extend MBps = round(Val / 1048576, 4)\n| extend SeriesLabel = strcat(Name, ' — ', Interface)\n| summarize AvgMBps = round(avg(MBps), 4) by bin(TimeGenerated, 1m), SeriesLabel\n| order by TimeGenerated asc",
+              "size": 0,
+              "title": "Network I/O MBps — {DrillVM}",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "timechart",
+              "timeContextFromParameter": "TimeRange",
+              "chartSettings": {
+                "aggregation": "Average",
+                "seriesAggregation": "Average",
+                "showLegend": true
+              }
+            },
+            "name": "drill-network"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "SelectedTab",
+        "comparison": "isEqualTo",
+        "value": "DrillDown"
+      },
+      "name": "group-drilldown"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## 🖥 Windows Services — Inventory & Changes\nSearchable service inventory with change history, modelled after Change Tracking & Inventory.\n\n> ⚠️ Requires the **ChangeTracking** solution enabled on the Log Analytics Workspace.\n\n👆 **Click any row** in the inventory grid to filter change history to that service."
+            },
+            "name": "services-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ConfigurationData\n| where TimeGenerated {TimeRange}\n| where ConfigDataType == 'WindowsServices'\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| summarize arg_max(TimeGenerated, *) by Computer, SvcName\n| summarize\n    Running      = countif(SvcState == 'Running'),\n    Stopped      = countif(SvcState == 'Stopped'),\n    Disabled     = countif(SvcStartupType == 'Disabled'),\n    Unknown      = countif(not(SvcState in ('Running','Stopped'))),\n    TotalVMs     = dcount(Computer),\n    TotalServices = count()\n| project TotalServices, TotalVMs, Running, Stopped, Disabled, Unknown",
+              "size": 4,
+              "title": "Service State Summary",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "timeContextFromParameter": "TimeRange",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "TotalServices",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "blue",
+                      "min": 0
+                    }
+                  },
+                  {
+                    "columnMatch": "TotalVMs",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "blue",
+                      "min": 0
+                    }
+                  },
+                  {
+                    "columnMatch": "Running",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "green",
+                      "min": 0
+                    }
+                  },
+                  {
+                    "columnMatch": "Stopped",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "red",
+                      "min": 0
+                    }
+                  },
+                  {
+                    "columnMatch": "Disabled",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "gray",
+                      "min": 0
+                    }
+                  },
+                  {
+                    "columnMatch": "Unknown",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "yellow",
+                      "min": 0
+                    }
+                  }
+                ]
+              }
+            },
+            "name": "services-summary"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ConfigurationData\n| where TimeGenerated {TimeRange}\n| where ConfigDataType == 'WindowsServices'\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| summarize arg_max(TimeGenerated, *) by Computer, SvcName\n| extend StateIcon = case(\n    SvcState == 'Running',                         '✅ Running',\n    SvcState == 'Stopped' and SvcStartupType == 'Auto', '🔴 Stopped (Auto-start!)',\n    SvcState == 'Stopped',                         '🟠 Stopped',\n    SvcStartupType == 'Disabled',                  '⬛ Disabled',\n                                                    '🟡 Unknown')\n| extend StartupIcon = case(\n    SvcStartupType == 'Auto',     '🟢 Auto',\n    SvcStartupType == 'Manual',   '🔵 Manual',\n    SvcStartupType == 'Disabled', '⬛ Disabled',\n                                   '❓ Unknown')\n| project Computer,\n    DisplayName    = SvcDisplayName,\n    ServiceKey     = SvcName,\n    StateIcon,\n    StartupIcon,\n    ServiceAccount = SvcAccount,\n    LastUpdated    = TimeGenerated\n| order by Computer asc, StateIcon asc, DisplayName asc",
+              "size": 1,
+              "title": "Service Inventory — Current State  🔍 Click a row to see its change history",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "timeContextFromParameter": "TimeRange",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "StateIcon",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "StartupIcon",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "LastUpdated",
+                    "formatter": 6
+                  }
+                ],
+                "filter": true,
+                "sortBy": [
+                  {
+                    "itemKey": "StateIcon",
+                    "sortOrder": 2
+                  },
+                  {
+                    "itemKey": "DisplayName",
+                    "sortOrder": 1
+                  }
+                ]
+              },
+              "exportedParameters": [
+                {
+                  "fieldName": "ServiceKey",
+                  "parameterName": "SelectedService",
+                  "parameterType": 1
+                },
+                {
+                  "fieldName": "Computer",
+                  "parameterName": "ServiceComputer",
+                  "parameterType": 1
+                }
+              ]
+            },
+            "name": "services-inventory"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "### 🔍 Change History: **{SelectedService}** | Computer: **{ServiceComputer}**\n---"
+            },
+            "name": "services-drill-label"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ConfigurationChange\n| where TimeGenerated {TimeRange}\n| where ConfigChangeType == 'WindowsServices'\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| where isempty('{SelectedService}') or SvcName =~ '{SelectedService}'\n| where isempty('{ServiceComputer}')  or Computer =~ '{ServiceComputer}'\n| extend ChangeIcon = case(\n    ChangeCategory == 'Added',    '➕ Added',\n    ChangeCategory == 'Removed',  '➖ Removed',\n    ChangeCategory == 'Modified', '✏️ Modified',\n                                   '❓ Other')\n| project TimeGenerated, Computer,\n    DisplayName    = SvcDisplayName,\n    ServiceKey     = SvcName,\n    ChangeIcon,\n    PreviousState  = Previous,\n    CurrentState   = Current\n| order by TimeGenerated desc",
+              "size": 1,
+              "title": "Change History — {SelectedService}",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "timeContextFromParameter": "TimeRange",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "TimeGenerated",
+                    "formatter": 6
+                  },
+                  {
+                    "columnMatch": "ChangeIcon",
+                    "formatter": 1
+                  }
+                ],
+                "filter": true,
+                "sortBy": [
+                  {
+                    "itemKey": "TimeGenerated",
+                    "sortOrder": 2
+                  }
+                ]
+              }
+            },
+            "name": "services-changes"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ConfigurationData\n| where TimeGenerated {TimeRange}\n| where ConfigDataType == 'WindowsServices'\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| summarize arg_max(TimeGenerated, *) by Computer, SvcName\n| summarize\n    Total    = count(),\n    Running  = countif(SvcState == 'Running'),\n    Stopped  = countif(SvcState == 'Stopped'),\n    Disabled = countif(SvcStartupType == 'Disabled')\n  by Computer\n| extend StoppedPct = round(todouble(Stopped) / Total * 100, 1)\n| order by Stopped desc, Computer asc",
+              "size": 1,
+              "title": "Services by Computer — Running / Stopped / Disabled",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "timeContextFromParameter": "TimeRange",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Running",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "palette": "green"
+                    }
+                  },
+                  {
+                    "columnMatch": "Stopped",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "palette": "red"
+                    }
+                  },
+                  {
+                    "columnMatch": "Disabled",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "palette": "gray"
+                    }
+                  },
+                  {
+                    "columnMatch": "StoppedPct",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "greenRed"
+                    }
+                  }
+                ],
+                "filter": true,
+                "sortBy": [
+                  {
+                    "itemKey": "Stopped",
+                    "sortOrder": 2
+                  }
+                ]
+              }
+            },
+            "name": "services-by-computer"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ConfigurationChange\n| where TimeGenerated {TimeRange}\n| where ConfigChangeType == 'WindowsServices'\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| extend ChangeIcon = case(\n    ChangeCategory == 'Added',    '➕ Added',\n    ChangeCategory == 'Removed',  '➖ Removed',\n    ChangeCategory == 'Modified', '✏️ Modified',\n                                   '❓ Other')\n| project TimeGenerated, Computer,\n    DisplayName   = SvcDisplayName,\n    ServiceKey    = SvcName,\n    ChangeIcon,\n    PreviousState = Previous,\n    CurrentState  = Current\n| order by TimeGenerated desc",
+              "size": 1,
+              "title": "All Recent Service Changes",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "timeContextFromParameter": "TimeRange",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "TimeGenerated",
+                    "formatter": 6
+                  },
+                  {
+                    "columnMatch": "ChangeIcon",
+                    "formatter": 1
+                  }
+                ],
+                "filter": true,
+                "sortBy": [
+                  {
+                    "itemKey": "TimeGenerated",
+                    "sortOrder": 2
+                  }
+                ]
+              }
+            },
+            "name": "services-all-changes"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "SelectedTab",
+        "comparison": "isEqualTo",
+        "value": "Services"
+      },
+      "name": "group-services"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## 🌐 Network I/O\nRead and Write throughput per VM per network interface (MBps)."
+            },
+            "name": "network-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'Network' and Name == 'ReadBytesPerSecond'\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| extend Interface = tostring(todynamic(Tags)['vm.azm.ms/networkDeviceId'])\n| extend MBps = round(Val / 1048576, 4)\n| extend SeriesLabel = strcat(Computer, ' — ', Interface)\n| summarize AvgMBps = round(avg(MBps), 4) by bin(TimeGenerated, 5m), SeriesLabel\n| order by TimeGenerated asc",
+              "size": 0,
+              "title": "Network Read (MBps) — Per VM Per Interface",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "timechart",
+              "timeContextFromParameter": "TimeRange",
+              "chartSettings": {
+                "aggregation": "Average",
+                "seriesAggregation": "Average",
+                "showLegend": true
+              }
+            },
+            "name": "network-read"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'Network' and Name == 'WriteBytesPerSecond'\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| extend Interface = tostring(todynamic(Tags)['vm.azm.ms/networkDeviceId'])\n| extend MBps = round(Val / 1048576, 4)\n| extend SeriesLabel = strcat(Computer, ' — ', Interface)\n| summarize AvgMBps = round(avg(MBps), 4) by bin(TimeGenerated, 5m), SeriesLabel\n| order by TimeGenerated asc",
+              "size": 0,
+              "title": "Network Write (MBps) — Per VM Per Interface",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "timechart",
+              "timeContextFromParameter": "TimeRange",
+              "chartSettings": {
+                "aggregation": "Average",
+                "seriesAggregation": "Average",
+                "showLegend": true
+              }
+            },
+            "name": "network-write"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'Network' and Name in ('ReadBytesPerSecond','WriteBytesPerSecond')\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| extend MBps = Val / 1048576\n| summarize AvgMBps = round(avg(MBps), 4), MaxMBps = round(max(MBps), 4) by Computer, Name\n| extend Direction = iff(Name == 'ReadBytesPerSecond', '⬇️ Read', '⬆️ Write')\n| project Computer, Direction, AvgMBps, MaxMBps\n| order by Computer asc, Direction asc",
+              "size": 1,
+              "title": "Network Summary — Avg & Max MBps per VM",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "timeContextFromParameter": "TimeRange",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Direction",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "AvgMBps",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "blue"
+                    }
+                  },
+                  {
+                    "columnMatch": "MaxMBps",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "blue"
+                    }
+                  }
+                ],
+                "filter": true
+              }
+            },
+            "name": "network-summary"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "SelectedTab",
+        "comparison": "isEqualTo",
+        "value": "Network"
+      },
+      "name": "group-network"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## 📈 Capacity Planning\n90-day ML disk forecast and memory P95 trend.\n\n> ⚠️ Forecast requires **at least 7 days** of historical data."
+            },
+            "name": "capacity-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated > ago(30d)\n| where Namespace == 'LogicalDisk' and Name == 'FreeSpacePercentage'\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| extend Disk = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| extend Disk = iff(isempty(Disk), 'unknown', Disk)\n| where not(Disk startswith '/snap' or Disk startswith '/sys' or Disk startswith '/proc' or Disk startswith '/dev' or Disk startswith '/run')\n| extend SeriesKey = strcat(Computer, '|', Disk)\n| make-series FreePct = avg(Val) on TimeGenerated\n    from ago(30d) to now()+90d step 1d by SeriesKey\n| extend forecast = series_decompose_forecast(FreePct, 90)\n| mv-expand TimeGenerated to typeof(datetime),\n    FreePct to typeof(double), forecast to typeof(double)\n| project TimeGenerated, SeriesKey,\n    FreePct     = iff(TimeGenerated <= now(), FreePct,  real(null)),\n    ForecastPct = iff(TimeGenerated >  now(), forecast, real(null))\n| order by SeriesKey asc, TimeGenerated asc",
+              "size": 0,
+              "title": "Disk Free % — 90-Day Forecast (ML per mount)",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "timechart",
+              "chartSettings": {
+                "aggregation": "Average",
+                "seriesAggregation": "Average",
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0,
+                  "max": 100
+                }
+              }
+            },
+            "name": "capacity-disk-forecast"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated > ago(30d)\n| where Namespace == 'LogicalDisk' and Name == 'FreeSpacePercentage'\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| extend Disk = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| extend Disk = iff(isempty(Disk), 'unknown', Disk)\n| where not(Disk startswith '/snap' or Disk startswith '/sys' or Disk startswith '/proc' or Disk startswith '/dev' or Disk startswith '/run')\n| extend SeriesKey = strcat(Computer, '|', Disk)\n| make-series FreePct = avg(Val) on TimeGenerated\n    from ago(30d) to now()+90d step 1d by SeriesKey, Computer, Disk\n| extend forecast = series_decompose_forecast(FreePct, 90)\n| extend ForecastAt90d = todouble(forecast[array_length(forecast)-1])\n| extend ForecastAt30d = todouble(forecast[array_length(forecast)-60])\n| extend Status90d = iff(ForecastAt90d < 10.0, '🔴 Critical',\n    iff(ForecastAt90d < 20.0, '🟡 Watch', '🟢 OK'))\n| project Computer, Disk,\n    CurrentFreePct = round(todouble(FreePct[array_length(FreePct)-1]), 1),\n    ForecastAt30d  = round(ForecastAt30d, 1),\n    ForecastAt90d  = round(ForecastAt90d, 1), Status90d\n| order by ForecastAt90d asc",
+              "size": 1,
+              "title": "Disk Capacity — 30d & 90d Outlook",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "CurrentFreePct",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "redGreen"
+                    }
+                  },
+                  {
+                    "columnMatch": "ForecastAt30d",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "redGreen"
+                    }
+                  },
+                  {
+                    "columnMatch": "ForecastAt90d",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "redGreen"
+                    }
+                  },
+                  {
+                    "columnMatch": "Status90d",
+                    "formatter": 1
+                  }
+                ],
+                "filter": true,
+                "sortBy": [
+                  {
+                    "itemKey": "ForecastAt90d",
+                    "sortOrder": 1
+                  }
+                ]
+              }
+            },
+            "name": "capacity-disk-table"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'Memory' and Name == 'AvailableMB'\n| extend NormalizedComputer = tolower(tostring(split(Computer, '.')[0]))\n| where \"{SelectedVM}\" has \"*\" or NormalizedComputer in~ ({SelectedVM})\n| extend TotalMB = toreal(todynamic(Tags)['vm.azm.ms/memorySizeMB'])\n| where TotalMB > 0\n| extend UsedPct = round((1.0 - (Val / TotalMB)) * 100.0, 2)\n| extend UsedPct = iff(UsedPct < 0.0, 0.0, iff(UsedPct > 100.0, 100.0, UsedPct))\n| summarize P95Mem = round(percentile(UsedPct, 95), 2),\n    AvgMem = round(avg(UsedPct), 2) by bin(TimeGenerated, 1h), Computer\n| order by TimeGenerated asc",
+              "size": 0,
+              "title": "Memory Used % Trend (Avg + P95) — Per VM",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "timechart",
+              "timeContextFromParameter": "TimeRange",
+              "chartSettings": {
+                "aggregation": "Average",
+                "seriesAggregation": "Average",
+                "showLegend": true,
+                "ySettings": {
+                  "min": 0,
+                  "max": 100
+                }
+              }
+            },
+            "name": "capacity-mem"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "SelectedTab",
+        "comparison": "isEqualTo",
+        "value": "Capacity"
+      },
+      "name": "group-capacity"
+    }
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
