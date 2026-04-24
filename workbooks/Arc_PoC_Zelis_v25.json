@@ -38,7 +38,7 @@
             "typeSettings": {
               "showDefault": true
             },
-            "defaultValue": "/subscriptions/3da27d0f-fc11-4c12-abdc-25e4414cc125/resourceGroups/jm-arcbox-rg-cus/providers/Microsoft.OperationalInsights/workspaces/ArcBox-la",
+            "defaultValue": "<LAW_ResourceID>",
             "queryType": 1,
             "resourceType": "microsoft.resourcegraph/resources"
           },
