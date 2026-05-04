@@ -38,7 +38,7 @@
             "typeSettings": {
               "showDefault": true
             },
-            "defaultValue": "<Your Log Analytics Workspace Resource ID>",
+            "defaultValue": "<LAW_ResourceID>",
             "queryType": 1,
             "resourceType": "microsoft.resourcegraph/resources"
           },
